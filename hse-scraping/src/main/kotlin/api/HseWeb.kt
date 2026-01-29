@@ -1,6 +1,6 @@
 package api
 
-import io.github.kroune.logger
+import io.github.kroune.common.logging.Loggers
 import io.github.kroune.Env
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -10,6 +10,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import org.jsoup.Jsoup
 import kotlin.system.measureTimeMillis
+
+private val logger = Loggers.scraping
 
 sealed interface UserNameResult {
     data class Success(val name: String) : UserNameResult

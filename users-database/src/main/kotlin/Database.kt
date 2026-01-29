@@ -1,10 +1,14 @@
 package db
 
+import io.github.kroune.common.config.DatabaseConfig
+import io.github.kroune.common.logging.Loggers
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.core.dao.id.IntIdTable
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+
+private val logger = Loggers.database
 
 object Users : IntIdTable() {
     val moodleId = integer("moodle_id").uniqueIndex()
@@ -91,18 +95,21 @@ object ErrorLogs : IntIdTable() {
     val stackTrace = text("stack_trace")
 }
 
-fun initDatabase() {
-    // this is valid credentials
+/**
+ * Initialize database connection using configuration
+ */
+fun initDatabase(config: DatabaseConfig) {
+    logger.info { "Connecting to database at ${config.url}" }
+
     Database.connect(
-        url = "jdbc:postgresql://localhost:5432/postgres",  // Use 'postgres' (default DB)
-        driver = "org.postgresql.Driver",
-        user = "postgres",  // Default user is 'postgres'
-        password = "mysecretpassword"
+        url = config.url,
+        driver = config.driver,
+        user = config.user,
+        password = config.password
     )
 
     transaction {
         addLogger(StdOutSqlLogger)
-//        SchemaUtils.drop(Users, StaffPositions, StaffAddresses, Educations, WebRequests, MobileSearches, ErrorLogs)
         SchemaUtils.create(
             Users,
             StaffPositions,
@@ -113,4 +120,14 @@ fun initDatabase() {
             ErrorLogs,
         )
     }
+
+    logger.info { "Database initialized successfully" }
 }
+
+/**
+ * Initialize database using environment configuration
+ */
+fun initDatabase() {
+    initDatabase(DatabaseConfig.fromEnv())
+}
+
