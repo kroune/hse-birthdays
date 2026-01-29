@@ -48,7 +48,7 @@ fun initBot(config: BotConfig): TelegramBot {
     val bot = TelegramBot(config.token) {
         rateLimiter {
             this.limits = RateLimits(
-                period = config.rateLimitPeriodSec,
+                period = config.rateLimitPeriodMs,
                 rate = config.rateLimitRate,
             )
         }
