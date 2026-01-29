@@ -2,6 +2,8 @@ plugins {
     kotlin("jvm")
     kotlin("plugin.serialization") version "2.2.20"
     id("com.google.devtools.ksp") version "2.2.0-2.0.2"
+    id("io.ktor.plugin") version "3.4.0"
+    application
 }
 
 group = "io.github.kroune"
@@ -17,6 +19,10 @@ dependencies {
 
     implementation(project(":common"))
     implementation(project(":users-database"))
+}
+
+application {
+    mainClass.set("io.github.kroune.bot.MainKt")
 }
 
 tasks.test {
