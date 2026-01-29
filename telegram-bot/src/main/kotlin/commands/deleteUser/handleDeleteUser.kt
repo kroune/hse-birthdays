@@ -1,0 +1,58 @@
+package commands.deleteUser
+
+import commands.BotStartedGuard
+import model.UserWrapper
+import eu.vendeli.tgbot.TelegramBot
+import eu.vendeli.tgbot.annotations.CommandHandler
+import eu.vendeli.tgbot.annotations.Guard
+import eu.vendeli.tgbot.api.message.message
+import eu.vendeli.tgbot.types.User
+import eu.vendeli.tgbot.types.chat.Chat
+import eu.vendeli.tgbot.utils.common.setChain
+import getAdditionalUsers
+import getInternalChatId
+import io.github.kroune.logger
+
+
+@Guard(BotStartedGuard::class)
+@CommandHandler(["/deleteuser"])
+suspend fun handleDeleteUser(user: User, bot: TelegramBot, chat: Chat) {
+    logger.info { "User ${user.id} started additional user deletion" }
+    val chatDbId = getInternalChatId(chat)
+
+    runCatching {
+        // Get list of additional users
+        val additionalUsers = getAdditionalUsers(chatDbId).map { userId ->
+            UserWrapper(userId).fullName
+        }
+
+        if (additionalUsers.isEmpty()) {
+            message {
+                """
+                ℹ️ У вас нет дополнительных пользователей для удаления.
+                
+                Используйте /adduser, чтобы добавить пользователей.
+                """.trimIndent()
+            }.send(chat, bot)
+            return
+        }
+
+        message {
+            """
+            👥 Выберите пользователя для удаления:
+            
+            ${additionalUsers.mapIndexed { index, fullName -> "${index + 1}. $fullName" }.joinToString("\n")}
+            
+            Введите номер пользователя или его имя, которого вы хотите удалить, или введите "отмена" для отмены.
+            """.trimIndent()
+        }.send(chat, bot)
+
+        // Start the input chain for user deletion
+        bot.inputListener.setChain(user, DeleteUserChain.UserSelection)
+    }.onFailure { e ->
+        logger.error(e) { "Error in deleteuser command: ${e.message}" }
+        message {
+            "❌ Произошла ошибка при удалении пользователя. Пожалуйста, попробуйте еще раз."
+        }.send(chat, bot)
+    }
+}

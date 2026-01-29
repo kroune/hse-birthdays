@@ -1,0 +1,56 @@
+package commands.deleteGroup
+
+import commands.BotStartedGuard
+import eu.vendeli.tgbot.TelegramBot
+import eu.vendeli.tgbot.annotations.CommandHandler
+import eu.vendeli.tgbot.annotations.Guard
+import eu.vendeli.tgbot.api.message.message
+import eu.vendeli.tgbot.types.User
+import eu.vendeli.tgbot.types.chat.Chat
+import eu.vendeli.tgbot.utils.common.setChain
+import getInternalChatId
+import getTargetGroups
+import io.github.kroune.logger
+
+
+@Guard(BotStartedGuard::class)
+@CommandHandler(["/deletegroup"])
+suspend fun handleDeleteGroup(user: User, bot: TelegramBot, chat: Chat) {
+    logger.info { "User ${user.id} started group deletion" }
+    val chatDbId = getInternalChatId(chat)
+
+    runCatching {
+        // Get list of target groups
+        val targetGroups = getTargetGroups(chatDbId)
+
+        if (targetGroups.isEmpty()) {
+            message {
+                """
+                ℹ️ У вас нет сохраненных групп для удаления.
+                
+                Используйте /addgroup, чтобы добавить группу.
+                """.trimIndent()
+            }.send(chat, bot)
+            return
+        }
+
+        message {
+            """
+            📚 Выберите группу для удаления:
+            
+            ${targetGroups.mapIndexed { idx, group -> "${idx + 1}. $group" }.joinToString("\n")}
+            
+            Введите номер группы или название группы, которую вы хотите удалить, или введите "отмена" для отмены.
+            """.trimIndent()
+        }.send(chat, bot)
+
+        // Start the input chain for group deletion
+        bot.inputListener.setChain(user, DeleteGroupChain.GroupSelection)
+
+    }.onFailure { e ->
+        logger.error(e) { "Error in deletegroup command: ${e.message}" }
+        message {
+            "❌ Произошла ошибка при удалении группы. Пожалуйста, попробуйте еще раз."
+        }.send(chat, bot)
+    }
+}
