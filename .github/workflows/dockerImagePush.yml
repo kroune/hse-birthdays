@@ -74,10 +74,10 @@ jobs:
           git clone https://x-access-token:${DEPLOY_REPO_TOKEN}@github.com/kroune/hse-birthdays-deploy.git deploy-repo
           cd deploy-repo
           
-          # Update image tag in values.yaml
-          sed -i "s|tag: .*|tag: ${IMAGE_TAG}|g" values.yaml
+          # Update only telegram bot image tag in values.yaml
+          sed -i '/^telegramBot:/,/^[a-z]/ { /^  image:/,/^  [a-z]/ { s/tag: .*/tag: '"${IMAGE_TAG}"'/; } }' values.yaml
           
           # Commit and push changes
           git add values.yaml
-          git commit -m "chore: update image tag to ${IMAGE_TAG}" || exit 0
+          git commit -m "chore: update telegram bot image tag to ${IMAGE_TAG}" || exit 0
           git push
