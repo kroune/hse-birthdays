@@ -153,12 +153,20 @@ suspend fun handleSearchCallback(user: User, update: ProcessedUpdate, bot: Teleg
         "group" -> promptInput(chatId, bot, user, "Введите группу:", UserSearchState.GroupNameInput)
 
         "type_student" -> {
-            session.searchCriteria["Тип"] = "STUDENT"
+            if (session.searchCriteria["Тип"] == "STUDENT") {
+                session.searchCriteria.remove("Тип")
+            } else {
+                session.searchCriteria["Тип"] = "STUDENT"
+            }
             displaySearchMenu(chatId, bot)
         }
 
         "type_staff" -> {
-            session.searchCriteria["Тип"] = "STAFF"
+            if (session.searchCriteria["Тип"] == "STAFF") {
+                session.searchCriteria.remove("Тип")
+            } else {
+                session.searchCriteria["Тип"] = "STAFF"
+            }
             displaySearchMenu(chatId, bot)
         }
 
