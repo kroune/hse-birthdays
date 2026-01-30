@@ -2,13 +2,11 @@ package io.github.kroune.bot.command.deleteGroup
 
 import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.annotations.Guard
-import eu.vendeli.tgbot.annotations.InputChain
+import eu.vendeli.tgbot.annotations.InputHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
-import eu.vendeli.tgbot.types.chain.ChainLink
 import eu.vendeli.tgbot.types.component.ProcessedUpdate
 import eu.vendeli.tgbot.types.component.getChat
-import eu.vendeli.tgbot.utils.common.setChain
 import io.github.kroune.bot.getInternalChatId
 import io.github.kroune.bot.getTargetGroups
 import io.github.kroune.bot.guard.BotStartedGuard
@@ -21,76 +19,73 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 private val logger = Loggers.command
 
-@Guard(BotStartedGuard::class)
-@InputChain
 object DeleteGroupChain {
-    object GroupSelection : ChainLink() {
-        override suspend fun action(user: User, update: ProcessedUpdate, bot: TelegramBot) {
-            val chat = update.getChat()
-            val chatDbId = getInternalChatId(chat)
-            val text = update.text.trim()
+    const val GroupSelection = "deletegroup:group_selection"
+}
 
-            if (text.equals("отмена", ignoreCase = true)) {
-                logger.info { "User ${user.id} cancelled group deletion" }
-                message {
-                    """
-                    ❌ Удаление группы отменено.
-                    
-                    Используйте /deletegroup, чтобы попробовать снова.
-                    """.trimIndent()
-                }.send(chat, bot)
-                return
-            }
+@Guard(BotStartedGuard::class)
+@InputHandler([DeleteGroupChain.GroupSelection])
+suspend fun handleDeleteGroupSelection(update: ProcessedUpdate, user: User, bot: TelegramBot) {
+    val chat = update.getChat()
+    val chatDbId = getInternalChatId(chat)
+    val text = update.text.trim()
 
-            val targetGroups = getTargetGroups(chatDbId)
+    if (text.equals("отмена", ignoreCase = true)) {
+        logger.info { "User ${user.id} cancelled group deletion" }
+        message {
+            """
+            ❌ Удаление группы отменено.
 
-            val groupToDelete = try {
-                val index = text.toInt() - 1
-                if (index >= 0 && index < targetGroups.size) {
-                    targetGroups[index]
-                } else {
-                    null
-                }
-            } catch (_: NumberFormatException) {
-                targetGroups.find { it.equals(text, ignoreCase = true) }
-            }
+            Используйте /deletegroup, чтобы попробовать снова.
+            """.trimIndent()
+        }.send(chat, bot)
+        return
+    }
 
-            if (groupToDelete == null) {
-                logger.warn { "User ${user.id} entered invalid group selection: $text" }
-                message {
-                    """
-                    ❌ Группа не найдена. Пожалуйста, введите корректный номер или название группы.
-                    
-                    Доступные группы:
-                    ${targetGroups.mapIndexed { idx, group -> "${idx + 1}. $group" }.joinToString("\n")}
-                    
-                    Введите номер или название, или введите "отмена" для отмены.
-                    """.trimIndent()
-                }.send(chat, bot)
-                bot.inputListener.setChain(user, GroupSelection)
-                return
-            }
+    val targetGroups = getTargetGroups(chatDbId)
 
-            logger.info { "User ${user.id} deleting group: $groupToDelete" }
+    val groupToDelete = try {
+        val index = text.toInt() - 1
+        if (index in targetGroups.indices) targetGroups[index] else null
+    } catch (_: NumberFormatException) {
+        targetGroups.find { it.equals(text, ignoreCase = true) }
+    }
 
-            val deletedCount = transaction {
-                BirthdayChatTargetGroups.deleteWhere {
-                    (birthdayChat eq chatDbId) and (targetGroup eq groupToDelete)
-                }
-            }
+    if (groupToDelete == null) {
+        logger.warn { "User ${user.id} entered invalid group selection: $text" }
+        message {
+            """
+            ❌ Группа не найдена. Пожалуйста, введите корректный номер или название группы.
 
-            logger.info { "User ${user.id} successfully deleted group: $groupToDelete (deleted $deletedCount row(s))" }
+            Доступные группы:
+            ${targetGroups.mapIndexed { idx, group -> "${idx + 1}. $group" }.joinToString("\n")}
 
-            message {
-                """
-                ✅ Группа успешно удалена!
-                
-                Группа "$groupToDelete" была удалена из вашего списка уведомлений.
-                Вы больше не будете получать уведомления о днях рождения людей в этой группе.
-                
-                Используйте /listusers, чтобы увидеть обновленный список пользователей.
-                """.trimIndent()
-            }.send(chat, bot)
+            Введите номер или название, или введите "отмена" для отмены.
+            """.trimIndent()
+        }.send(chat, bot)
+
+        bot.inputListener[user] = DeleteGroupChain.GroupSelection
+        return
+    }
+
+    logger.info { "User ${user.id} deleting group: $groupToDelete" }
+
+    val deletedCount = transaction {
+        BirthdayChatTargetGroups.deleteWhere {
+            (birthdayChat eq chatDbId) and (targetGroup eq groupToDelete)
         }
     }
+
+    logger.info { "User ${user.id} successfully deleted group: $groupToDelete (deleted $deletedCount row(s))" }
+
+    message {
+        """
+        ✅ Группа успешно удалена!
+
+        Группа "$groupToDelete" была удалена из вашего списка уведомлений.
+        Вы больше не будете получать уведомления о днях рождения людей в этой группе.
+
+        Используйте /listusers, чтобы увидеть обновленный список пользователей.
+        """.trimIndent()
+    }.send(chat, bot)
 }

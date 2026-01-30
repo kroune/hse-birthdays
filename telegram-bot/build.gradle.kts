@@ -1,8 +1,9 @@
 plugins {
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.2.20"
-    id("com.google.devtools.ksp") version "2.2.0-2.0.2"
-    id("io.ktor.plugin") version "3.4.0"
+    kotlin("plugin.serialization")
+    id("com.google.devtools.ksp")
+    id("io.ktor.plugin")
+    id("eu.vendeli.telegram-bot")
     application
 }
 
@@ -14,9 +15,6 @@ repositories {
 }
 
 dependencies {
-    implementation("eu.vendeli:telegram-bot:8.4.1")
-    ksp("eu.vendeli:ksp:8.4.1")
-
     implementation(project(":common"))
     implementation(project(":users-database"))
 }

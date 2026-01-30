@@ -3,12 +3,15 @@ package io.github.kroune.bot
 import db.initDatabase
 import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.types.component.HttpLogLevel
-import eu.vendeli.tgbot.types.component.LogLvl
+import ch.qos.logback.classic.Level
 import eu.vendeli.tgbot.types.configuration.RateLimits
+import eu.vendeli.tgbot.utils.common.logLevel
 import io.github.kroune.Env
 import io.github.kroune.bot.table.initTelegramTables
 import io.github.kroune.common.config.BotConfig
 import io.github.kroune.common.logging.Loggers
+import io.github.kroune.common.logging.Loggers.bot
+import sun.util.logging.resources.logging
 
 private val logger = Loggers.bot
 
@@ -46,16 +49,7 @@ fun initBot(config: BotConfig): TelegramBot {
     logger.info { "Initializing Telegram bot..." }
 
     val bot = TelegramBot(config.token) {
-        rateLimiter {
-            this.limits = RateLimits(
-                period = config.rateLimitPeriodMs,
-                rate = config.rateLimitRate,
-            )
-        }
-        logging {
-            this.botLogLevel = LogLvl.DEBUG
-            this.httpLogLevel = HttpLogLevel.NONE
-        }
+        logLevel = Level.DEBUG
         httpClient {
             this.connectTimeoutMillis = config.connectTimeoutMs
             this.socketTimeoutMillis = config.socketTimeoutMs

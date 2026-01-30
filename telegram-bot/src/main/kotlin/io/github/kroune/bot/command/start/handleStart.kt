@@ -5,7 +5,6 @@ import eu.vendeli.tgbot.annotations.CommandHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
 import eu.vendeli.tgbot.types.chat.Chat
-import eu.vendeli.tgbot.utils.common.setChain
 import io.github.kroune.bot.table.BirthdayChats
 import io.github.kroune.common.logging.Loggers
 import org.jetbrains.exposed.v1.core.eq
@@ -19,34 +18,30 @@ private val logger = Loggers.command
 @CommandHandler(["/start"])
 suspend fun handleStart(user: User, bot: TelegramBot, chat: Chat) {
     val chatId = chat.id
-
     logger.info { "User ${user.id} in ${chatId} started the bot" }
 
-    // Check if chat already exists and its status
     val chatInfo = transaction {
         BirthdayChats.selectAll()
             .where { BirthdayChats.telegramChatId eq chatId }
-            .map {
-                Pair(it[BirthdayChats.id], it[BirthdayChats.isActive])
-            }
+            .map { Pair(it[BirthdayChats.id], it[BirthdayChats.isActive]) }
             .singleOrNull()
     }
 
     if (chatInfo != null) {
         val (chatDbId, isActive) = chatInfo
 
-        // If chat was inactive, reactivate it
-        if (isActive) {
+        if (!isActive) {
             transaction {
                 BirthdayChats.update({ BirthdayChats.id eq chatDbId }) {
                     it[BirthdayChats.isActive] = true
                 }
             }
+
             logger.info { "Chat $chatId was inactive, now reactivated" }
             message {
                 """
                 ✅ Добро пожаловать обратно! Ваш чат был повторно активирован.
-                
+
                 /help - Показать справочное сообщение
                 """.trimIndent()
             }.send(chat, bot)
@@ -55,15 +50,15 @@ suspend fun handleStart(user: User, bot: TelegramBot, chat: Chat) {
             message {
                 """
                 ✅ Вы уже зарегистрированы!
-                
+
                 /help - Показать справочное сообщение
                 """.trimIndent()
             }.send(chat, bot)
         }
+
         return
     }
 
-    // Add chat to database
     val chatDbId = transaction {
         BirthdayChats.insert {
             it[telegramChatId] = chatId
@@ -75,13 +70,12 @@ suspend fun handleStart(user: User, bot: TelegramBot, chat: Chat) {
     message {
         """
         Добро пожаловать в бот для уведомлений о днях рождения! 🎂
-        
+
         Я помогу вам отслеживать дни рождения и отправлять уведомления.
-        
+
         Пожалуйста, введите название вашей группы (например, БДРИП251 или БПМИ25 для всех групп ПМИ 25 года) или введите "пропустить", чтобы пропустить этот шаг.
         """.trimIndent()
     }.send(chatId, bot)
 
-    // Start the input chain for group registration
-    bot.inputListener.setChain(user, GroupRegistrationChain.GroupName)
+    bot.inputListener[user] = GroupRegistrationChain.GroupName
 }

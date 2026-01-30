@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.2.20" apply true
+    kotlin("plugin.serialization")
 }
 
 group = "io.github.kroune"

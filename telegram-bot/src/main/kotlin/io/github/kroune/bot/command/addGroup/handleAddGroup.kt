@@ -6,7 +6,6 @@ import eu.vendeli.tgbot.annotations.Guard
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
 import eu.vendeli.tgbot.types.chat.Chat
-import eu.vendeli.tgbot.utils.common.setChain
 import io.github.kroune.bot.guard.BotStartedGuard
 import io.github.kroune.common.logging.Loggers
 
@@ -20,10 +19,9 @@ suspend fun handleAddGroup(user: User, bot: TelegramBot, chat: Chat) {
     message {
         """
         📚 Добавление новой группы
-        
         Пожалуйста, введите название группы (например, БДРИП251 или БПМИ25 для всех групп ПМИ 25 года) или введите "отмена" для отмены.
         """.trimIndent()
     }.send(chat, bot)
 
-    bot.inputListener.setChain(user, AddGroupChain.GroupName)
+    bot.inputListener[user] = AddGroupChain.GroupName
 }

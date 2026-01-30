@@ -6,7 +6,6 @@ import eu.vendeli.tgbot.annotations.Guard
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
 import eu.vendeli.tgbot.types.chat.Chat
-import eu.vendeli.tgbot.utils.common.setChain
 import io.github.kroune.bot.getAdditionalUsers
 import io.github.kroune.bot.getInternalChatId
 import io.github.kroune.bot.guard.BotStartedGuard
@@ -19,9 +18,10 @@ private val logger = Loggers.command
 @CommandHandler(["/deleteuser"])
 suspend fun handleDeleteUser(user: User, bot: TelegramBot, chat: Chat) {
     logger.info { "User ${user.id} started additional user deletion" }
+
     val chatDbId = getInternalChatId(chat)
 
-    runCatching {
+    try {
         val additionalUsers = getAdditionalUsers(chatDbId).map { userId ->
             UserWrapper(userId).fullName
         }
@@ -30,7 +30,7 @@ suspend fun handleDeleteUser(user: User, bot: TelegramBot, chat: Chat) {
             message {
                 """
                 ℹ️ У вас нет дополнительных пользователей для удаления.
-                
+
                 Используйте /adduser, чтобы добавить пользователей.
                 """.trimIndent()
             }.send(chat, bot)
@@ -40,18 +40,16 @@ suspend fun handleDeleteUser(user: User, bot: TelegramBot, chat: Chat) {
         message {
             """
             👥 Выберите пользователя для удаления:
-            
+
             ${additionalUsers.mapIndexed { index, fullName -> "${index + 1}. $fullName" }.joinToString("\n")}
-            
+
             Введите номер пользователя или его имя, которого вы хотите удалить, или введите "отмена" для отмены.
             """.trimIndent()
         }.send(chat, bot)
 
-        bot.inputListener.setChain(user, DeleteUserChain.UserSelection)
-    }.onFailure { e ->
+        bot.inputListener[user] = DeleteUserChain.UserSelection
+    } catch (e: Exception) {
         logger.error(e) { "Error in deleteuser command: ${e.message}" }
-        message {
-            "❌ Произошла ошибка при удалении пользователя. Пожалуйста, попробуйте еще раз."
-        }.send(chat, bot)
+        message { "❌ Произошла ошибка при удалении пользователя. Пожалуйста, попробуйте еще раз." }.send(chat, bot)
     }
 }
