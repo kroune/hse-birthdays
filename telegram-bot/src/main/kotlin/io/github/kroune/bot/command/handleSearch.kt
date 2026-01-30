@@ -7,6 +7,7 @@ import eu.vendeli.tgbot.annotations.CommandHandler
 import eu.vendeli.tgbot.annotations.Guard
 import eu.vendeli.tgbot.annotations.InputHandler
 import eu.vendeli.tgbot.api.message.deleteMessage
+import eu.vendeli.tgbot.api.message.editText
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
 import eu.vendeli.tgbot.types.chat.Chat
@@ -40,6 +41,7 @@ data class SearchSession(
     val searchResults: List<SearchResult> = emptyList(),
     val currentPage: Int = 0,
     val lastMenuMessageId: Long? = null,
+    val lastResultMessageId: Long? = null,
 )
 
 val searchSessions: TTLCache<Long, SearchSession> = TTLCache(TimeUnit.HOURS.toMillis(1))
@@ -140,6 +142,7 @@ suspend fun handleResultSelection(update: ProcessedUpdate, user: User, bot: Tele
 )
 suspend fun handleSearchCallback(user: User, update: ProcessedUpdate, bot: TelegramBot) {
     val chatId = update.origin.callbackQuery?.message?.chat?.id ?: user.id
+    val messageId = update.origin.callbackQuery?.message?.messageId
     val session = searchSessions.getOrPut(chatId) { SearchSession() }
 
     when (update.text) {
@@ -170,8 +173,8 @@ suspend fun handleSearchCallback(user: User, update: ProcessedUpdate, bot: Teleg
             message { "Поиск отменен." }.send(chatId, bot)
         }
 
-        "result_prev" -> navigatePage(user, chatId, bot, session, -1)
-        "result_next" -> navigatePage(user, chatId, bot, session, 1)
+        "result_prev" -> navigatePage(user, chatId, bot, session, -1, messageId)
+        "result_next" -> navigatePage(user, chatId, bot, session, 1, messageId)
 
         "result_back" -> {
             searchSessions[chatId] = SearchSession(
@@ -199,14 +202,15 @@ private suspend fun navigatePage(
     bot: TelegramBot,
     session: SearchSession,
     delta: Int,
+    messageId: Long? = null,
 ) {
     val totalPages = (session.searchResults.size + RESULTS_PER_PAGE - 1) / RESULTS_PER_PAGE
     val newPage = (session.currentPage + delta).coerceIn(0, totalPages - 1)
 
     if (newPage != session.currentPage) {
-        val newSession = session.copy(currentPage = newPage)
+        val newSession = session.copy(currentPage = newPage, lastResultMessageId = messageId)
         searchSessions[chatId] = newSession
-        displayResults(user, chatId, bot, newSession)
+        displayResults(user, chatId, bot, newSession, messageId)
     }
 }
 
@@ -238,6 +242,7 @@ private suspend fun displayResults(
     chatId: Long,
     bot: TelegramBot,
     session: SearchSession,
+    messageId: Long? = null,
 ) {
     val totalPages = (session.searchResults.size + RESULTS_PER_PAGE - 1) / RESULTS_PER_PAGE
     val startIdx = session.currentPage * RESULTS_PER_PAGE
@@ -266,16 +271,29 @@ private suspend fun displayResults(
         appendLine("Введите номер:")
     }
 
-    message { text }.inlineKeyboardMarkup {
-        if (totalPages > 1) {
-            if (session.currentPage > 0) "⬅️" callback "result_prev"
-            if (session.currentPage < totalPages - 1) "➡️" callback "result_next"
-            br()
-        }
+    if (messageId != null) {
+        editText(messageId) { text }.inlineKeyboardMarkup {
+            if (totalPages > 1) {
+                if (session.currentPage > 0) "⬅️" callback "result_prev"
+                if (session.currentPage < totalPages - 1) "➡️" callback "result_next"
+                br()
+            }
 
-        "🔙 Назад" callback "result_back"
-        "❌ Отмена" callback "result_cancel"
-    }.send(chatId, bot)
+            "🔙 Назад" callback "result_back"
+            "❌ Отмена" callback "result_cancel"
+        }.send(chatId, bot)
+    } else {
+        message { text }.inlineKeyboardMarkup {
+            if (totalPages > 1) {
+                if (session.currentPage > 0) "⬅️" callback "result_prev"
+                if (session.currentPage < totalPages - 1) "➡️" callback "result_next"
+                br()
+            }
+
+            "🔙 Назад" callback "result_back"
+            "❌ Отмена" callback "result_cancel"
+        }.send(chatId, bot)
+    }
 
     bot.inputListener[user] = UserSearchState.ResultSelection
 }
