@@ -75,9 +75,9 @@ jobs:
           cd deploy-repo
           
           # Update image tag in values.yaml
-          sed -i "s|tag: .*|tag: ${IMAGE_TAG}|g" k8s/values.yaml
+          sed -i "s|tag: .*|tag: ${IMAGE_TAG}|g" values.yaml
           
           # Commit and push changes
-          git add k8s/values.yaml
+          git add values.yaml
           git commit -m "chore: update image tag to ${IMAGE_TAG}" || exit 0
-          git push origin main || git push origin master
+          git push
